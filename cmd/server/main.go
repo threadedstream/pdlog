@@ -12,17 +12,19 @@ import (
 )
 
 const (
-	defaultHTTPAddr = ":9099"
-	defaultGRPCAddr = ":9098"
-	defaultSerfAddr = ":9097"
-	defaultStoreDir = "/store"
+	defaultHTTPAddr  = ":9099"
+	defaultDebugPort = 9084
+	defaultGRPCAddr  = ":9098"
+	defaultSerfAddr  = ":9097"
+	defaultStoreDir  = "/store"
 )
 
 var (
-	httpAddr = flag.String("http_addr", defaultHTTPAddr, "addr to run http server on")
-	grpcAddr = flag.String("grpc_addr", defaultGRPCAddr, "addr to run grpc server on")
-	serfAddr = flag.String("serf_addr", defaultSerfAddr, "addr to run serf on")
-	storeDir = flag.String("dir", defaultStoreDir, "directory to store data into")
+	httpAddr  = flag.String("http_addr", defaultHTTPAddr, "addr to run http server on")
+	debugPort = flag.Int("debug_port", defaultDebugPort, "port to run debug server on")
+	grpcAddr  = flag.String("grpc_addr", defaultGRPCAddr, "addr to run grpc server on")
+	serfAddr  = flag.String("serf_addr", defaultSerfAddr, "addr to run serf on")
+	storeDir  = flag.String("dir", defaultStoreDir, "directory to store data into")
 )
 
 func main() {
@@ -37,8 +39,9 @@ func main() {
 		HTTPBindAddr: *httpAddr,
 		RPCBindAddr:  *grpcAddr,
 		SerfBindAddr: *serfAddr,
+		DebugPort:    *debugPort,
 	}
-	a, err := agent.New(agentConfig)
+	a, err := agent.New(agentConfig, logger.Named("agent"))
 	if err != nil {
 		log.Fatal(err)
 	}

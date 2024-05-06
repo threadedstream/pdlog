@@ -3,8 +3,10 @@ module github.com/vlamug/pdlog
 go 1.21.5
 
 require (
+	github.com/go-chi/chi/v5 v5.0.12
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/serf v0.10.1
+	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.8.1
 	github.com/tysonmote/gommap v0.0.2
 	go.uber.org/zap v1.26.0

@@ -21,11 +21,13 @@ type (
 	Agent struct {
 		Config
 
-		log        *log.Log
-		httpServer *http.Server
-		grpcServer *grpc.Server
-		membership *discovery.Membership
-		replicator *log.Replicator
+		log         *log.Log
+		httpServer  *http.Server
+		grpcServer  *grpc.Server
+		debugServer *server.DebugServer
+		membership  *discovery.Membership
+		replicator  *log.Replicator
+		logger      *zap.Logger
 
 		shutdown     bool
 		shutdowns    chan struct{}
@@ -41,20 +43,24 @@ type (
 		StartJoinAddrs []string
 		ACLModelFile   string
 		ACLPolicyFile  string
+		DebugPort      int
 	}
 )
 
-func New(config Config) (*Agent, error) {
+func New(config Config, logger *zap.Logger) (*Agent, error) {
 	a := &Agent{
 		Config:    config,
 		shutdowns: make(chan struct{}),
+		logger:    logger,
 	}
 
 	setup := []func() error{
 		a.setupLogger,
 		a.setupLog,
 		a.setupServer,
+		a.setupDebugServer,
 		a.setupMembership,
+		a.setupDebugServer,
 	}
 
 	for _, fn := range setup {
@@ -62,7 +68,7 @@ func New(config Config) (*Agent, error) {
 			return nil, err
 		}
 	}
-  
+
 	return a, nil
 }
 
@@ -79,7 +85,7 @@ func (a *Agent) setupLogger() error {
 
 func (a *Agent) setupLog() error {
 	var err error
-  
+
 	a.log, err = log.NewLog(a.Config.DataDir, log.Config{})
 
 	return err
@@ -136,18 +142,24 @@ func (a *Agent) setupGRPC(serverConfig *server.Config) error {
 	return nil
 }
 
+func (a *Agent) setupDebugServer() error {
+	a.debugServer = server.NewDebugServer(a.DebugPort, a.logger)
+	a.debugServer.Run()
+	return nil
+}
+
 func (a *Agent) setupMembership() error {
 	// TODO(threadedstream): add support for secure communication in future
 	conn, err := grpc.Dial(a.RPCBindAddr, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		return err
 	}
-  
+
 	client := api.NewLogClient(conn)
 	a.replicator = &log.Replicator{
 		LocalServer: client,
 	}
-  
+
 	a.membership, err = discovery.New(a.replicator, &discovery.Config{
 		NodeName: a.NodeName,
 		BindAddr: a.SerfBindAddr,
@@ -156,10 +168,6 @@ func (a *Agent) setupMembership() error {
 		},
 		StartJoinAddrs: a.StartJoinAddrs,
 	})
-
-	if err := a.server.Serve(ln); err != nil {
-		_ = a.Shutdown()
-	}
 
 	return err
 }
@@ -175,7 +183,7 @@ func (a *Agent) Shutdown() error {
 	a.shutdown = true
 	close(a.shutdowns)
 
-	shutdown := []func() error{
+	shutdowns := []func() error{
 		a.membership.Leave,
 		a.replicator.Close,
 		func() error {
@@ -183,6 +191,7 @@ func (a *Agent) Shutdown() error {
 			return nil
 		},
 		a.log.Close,
+		a.debugServer.Shutdown,
 	}
 
 	for _, fn := range shutdowns {
@@ -190,6 +199,6 @@ func (a *Agent) Shutdown() error {
 			return err
 		}
 	}
-  
+
 	return nil
 }
