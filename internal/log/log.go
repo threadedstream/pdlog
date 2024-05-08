@@ -44,6 +44,10 @@ func NewLog(dir string, cfg Config) (*Log, error) {
 }
 
 func (l *Log) setup() error {
+	if err := makeDirIfNotExists(l.Dir); err != nil {
+		return err
+	}
+
 	files, err := os.ReadDir(l.Dir)
 	if err != nil {
 		return err
@@ -216,4 +220,13 @@ func (o *originReader) Read(p []byte) (int, error) {
 	n, err := o.ReadAt(p, o.off)
 	o.off += int64(n)
 	return n, err
+}
+
+func makeDirIfNotExists(dirPath string) error {
+	if _, err := os.Stat(dirPath); os.IsNotExist(err) {
+		if err = os.MkdirAll(dirPath, 0755); err != nil {
+			return err
+		}
+	}
+	return nil
 }

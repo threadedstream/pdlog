@@ -72,6 +72,8 @@ func (r *Replicator) replicate(addr string, leave chan struct{}) {
 
 	for {
 		select {
+		case <-stream.Context().Done():
+			return
 		case <-r.close:
 			return
 		case <-leave:

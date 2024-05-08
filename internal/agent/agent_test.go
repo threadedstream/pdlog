@@ -9,21 +9,22 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/vlamug/pdlog/api/v1"
+	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
 var ports []int
 
-func getPort() int {
+func getAddr() string {
 	if len(ports) == 0 {
-		return 10000
+		return fmt.Sprintf(":%d", 10000)
 	}
 
 	port := ports[len(ports)-1]
 	ports = ports[:len(ports)-1]
 
-	return port
+	return fmt.Sprintf(":%d", port)
 }
 
 func init() {
@@ -33,23 +34,24 @@ func init() {
 func TestAgent(t *testing.T) {
 	var agents []*Agent
 	for i := 0; i < 3; i++ {
-		bindAddr := fmt.Sprintf("%s:%d", "127.0.0.1", getPort())
+		bindAddr := getAddr()
 
 		dataDir, err := os.MkdirTemp("", "agent-test-log")
 		require.NoError(t, err)
 
 		var startJoinAddrs []string
 		if i != 0 {
-			startJoinAddrs = append(startJoinAddrs, agents[0].cfg.BindAddr)
+			startJoinAddrs = append(startJoinAddrs, agents[0].HTTPBindAddr)
 		}
 
-		agent, err := New(&Config{
+		logger := zap.NewNop()
+		agent, err := New(Config{
 			NodeName:       fmt.Sprintf("node_%d", i),
 			StartJoinAddrs: startJoinAddrs,
-			BindAddr:       bindAddr,
-			RPCPort:        getPort(),
+			HTTPBindAddr:   bindAddr,
+			RPCBindAddr:    getAddr(),
 			DataDir:        dataDir,
-		})
+		}, logger)
 		require.NoError(t, err)
 
 		agents = append(agents, agent)
@@ -87,15 +89,15 @@ func TestAgent(t *testing.T) {
 	for _, agent := range agents {
 		err := agent.Shutdown()
 		require.NoError(t, err)
-		require.NoError(t, os.RemoveAll(agent.cfg.DataDir))
+		require.NoError(t, os.RemoveAll(agent.Config.DataDir))
 	}
 }
 
 func client(t *testing.T, agent *Agent) api.LogClient {
-	addr, err := agent.cfg.RPCAddr()
-	require.NoError(t, err)
+	addr := agent.RPCBindAddr
 
 	conn, err := grpc.Dial(addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	require.NoError(t, err)
 
 	cl := api.NewLogClient(conn)
 

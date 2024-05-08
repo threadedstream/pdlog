@@ -1,11 +1,14 @@
 package log
 
 import (
-	log_v1 "github.com/vlamug/pdlog/api/v1"
-	"google.golang.org/protobuf/proto"
+	"bytes"
 	"io"
+	"math/rand"
 	"os"
 	"testing"
+
+	log_v1 "github.com/vlamug/pdlog/api/v1"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/stretchr/testify/require"
 )
@@ -30,6 +33,67 @@ func TestLog(t *testing.T) {
 			fn(t, log)
 		})
 	}
+}
+
+func BenchmarkLogAppend(b *testing.B) {
+	dir, err := os.MkdirTemp("", "store-test")
+	require.NoError(b, err)
+	defer os.RemoveAll(dir)
+
+	c := Config{}
+	log, err := NewLog(dir, c)
+	require.NoError(b, err)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		_, err = log.Append(generateRandomRecord())
+		require.NoError(b, err)
+	}
+}
+
+func BenchmarkLogRead(b *testing.B) {
+	dir, err := os.MkdirTemp("", "store-test")
+	require.NoError(b, err)
+	defer os.RemoveAll(dir)
+
+	c := Config{}
+	log, err := NewLog(dir, c)
+	require.NoError(b, err)
+
+	offsets := make(map[uint64][]byte, b.N)
+	for i := 0; i < b.N; i++ {
+		var offset uint64
+		record := generateRandomRecord()
+		offset, err = log.Append(record)
+		require.NoError(b, err)
+		offsets[offset] = record.GetValue()
+	}
+
+	b.ResetTimer()
+
+	for offset, expectedValue := range offsets {
+		record, err := log.Read(offset)
+		require.NoError(b, err)
+		require.Equal(b, expectedValue, record.GetValue())
+	}
+}
+
+func generateRandomRecord() *log_v1.Record {
+	return &log_v1.Record{
+		Value: getRandomByteString(16),
+	}
+}
+
+func getRandomByteString(n int) []byte {
+	bb := bytes.NewBuffer(make([]byte, n))
+
+	const alphabet = "abcdefghijklmnoprstuvxyz0123456789"
+	for i := 0; i < n; i++ {
+		bb.WriteByte(alphabet[rand.Intn(len(alphabet))])
+	}
+
+	return bb.Bytes()
 }
 
 func testAppendRead(t *testing.T, log *Log) {
