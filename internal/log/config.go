@@ -1,12 +1,17 @@
 package log
 
-import "github.com/hashicorp/raft"
+import (
+	"time"
+
+	"github.com/hashicorp/raft"
+)
 
 type Config struct {
 	Raft struct {
 		raft.Config
-		StreamLayer *StreamLayer
-		Bootstrap   bool
+		StreamLayer  *StreamLayer
+		Bootstrap    bool
+		LeaseTimeout time.Duration
 	}
 	Segment struct {
 		MaxStoreBytes uint64

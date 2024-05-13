@@ -8,23 +8,18 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/travisjeffery/go-dynaport"
 	"github.com/vlamug/pdlog/api/v1"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/status"
 )
 
 var ports []int
 
 func getAddr() string {
-	if len(ports) == 0 {
-		return fmt.Sprintf(":%d", 10000)
-	}
-
-	port := ports[len(ports)-1]
-	ports = ports[:len(ports)-1]
-
-	return fmt.Sprintf(":%d", port)
+	return fmt.Sprintf("127.0.0.1:%d", dynaport.Get(1)[0])
 }
 
 func init() {
@@ -41,16 +36,17 @@ func TestAgent(t *testing.T) {
 
 		var startJoinAddrs []string
 		if i != 0 {
-			startJoinAddrs = append(startJoinAddrs, agents[0].HTTPBindAddr)
+			startJoinAddrs = append(startJoinAddrs, agents[0].RPCBindAddr)
 		}
 
 		logger := zap.NewNop()
 		agent, err := New(Config{
 			NodeName:       fmt.Sprintf("node_%d", i),
 			StartJoinAddrs: startJoinAddrs,
-			HTTPBindAddr:   bindAddr,
-			RPCBindAddr:    getAddr(),
+			HTTPBindAddr:   getAddr(),
+			RPCBindAddr:    bindAddr,
 			DataDir:        dataDir,
+			Bootstrap:      i == 0,
 		}, logger)
 		require.NoError(t, err)
 
@@ -91,6 +87,17 @@ func TestAgent(t *testing.T) {
 		require.NoError(t, err)
 		require.NoError(t, os.RemoveAll(agent.Config.DataDir))
 	}
+
+	consumeResponse, err := leaderClient.Consume(
+		context.Background(),
+		&api.ConsumeRequest{Offset: produceResponse.Offset + 1},
+	)
+	require.Nil(t, consumeResponse)
+	require.NoError(t, err)
+
+	got := status.Code(err)
+	want := status.Code(api.ErrOffsetOutOfRange{}.GRPCStatus().Err())
+	require.Equal(t, got, want)
 }
 
 func client(t *testing.T, agent *Agent) api.LogClient {

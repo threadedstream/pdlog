@@ -4,11 +4,14 @@ go 1.21.5
 
 require (
 	github.com/go-chi/chi/v5 v5.0.12
+	github.com/golang/protobuf v1.5.2
 	github.com/gorilla/mux v1.8.0
 	github.com/hashicorp/raft v1.6.1
 	github.com/hashicorp/raft-boltdb v0.0.0-20231211162105-6c830fa4535e
 	github.com/hashicorp/serf v0.10.1
+	github.com/soheilhy/cmux v0.1.5
 	github.com/stretchr/testify v1.8.4
+	github.com/travisjeffery/go-dynaport v1.0.0
 	github.com/tysonmote/gommap v0.0.2
 	go.uber.org/zap v1.26.0
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
@@ -21,7 +24,6 @@ require (
 	github.com/boltdb/bolt v1.3.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.13.0 // indirect
-	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/btree v0.0.0-20180813153112-4030bb1f1f0c // indirect
 	github.com/hashicorp/errwrap v1.0.0 // indirect
 	github.com/hashicorp/go-hclog v1.6.2 // indirect
